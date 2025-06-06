@@ -14,9 +14,14 @@
 #include <map>
 
 // Color constants
-const std::string WHITE_COLOR = "\033[1;37m";
-const std::string BLACK_COLOR = "\033[1;30m";
-const std::string RESET_COLOR = "\033[0m";
+const std::string WHITE_COLOR      = "\033[1;37m";
+const std::string BLACK_COLOR      = "\033[1;30m";
+const std::string RESET_COLOR      = "\033[0m";
+const std::string LIGHT_SQUARE_BG  = "\033[48;5;229m";  // light yellow
+const std::string DARK_SQUARE_BG   = "\033[48;5;94m";   // dark green/brown
+const std::string RESET_FG         = "\033[39m";        // reset foreground only
+const std::string RESET_BG         = "\033[49m";        // reset background only
+const std::string RESET_ALL        = "\033[0m";         // reset all colors
 
 // Unicode symbols for pieces
 const std::map<char, std::string> pieceSymbols = {
@@ -41,30 +46,35 @@ Board::~Board() {
 }
 
 void Board::setup() {
-    // Setup the board with initial pieces
+    // Setup pawns
     for (int i = 0; i < 8; ++i) {
         board[1][i] = new Pawn(Color::BLACK);
         board[6][i] = new Pawn(Color::WHITE);
     }
 
+    // Setup kings
     board[0][4] = new King(Color::BLACK);
     board[7][4] = new King(Color::WHITE);
 
+    // Setup rooks
     board[0][0] = new Rook(Color::BLACK);
     board[0][7] = new Rook(Color::BLACK);
     board[7][0] = new Rook(Color::WHITE);
     board[7][7] = new Rook(Color::WHITE);
 
+    // Setup knights
     board[0][1] = new Knight(Color::BLACK);
     board[0][6] = new Knight(Color::BLACK);
     board[7][1] = new Knight(Color::WHITE);
     board[7][6] = new Knight(Color::WHITE);
 
+    // Setup bishops
     board[0][2] = new Bishop(Color::BLACK);
     board[0][5] = new Bishop(Color::BLACK);
     board[7][2] = new Bishop(Color::WHITE);
     board[7][5] = new Bishop(Color::WHITE);
 
+    // Setup queens
     board[0][3] = new Queen(Color::BLACK);
     board[7][3] = new Queen(Color::WHITE);
 }
@@ -76,16 +86,20 @@ void Board::print() const {
     for (int i = 0; i < 8; ++i) {
         std::cout << 8 - i << " ";
         for (int j = 0; j < 8; ++j) {
-            std::cout << "| ";
+            bool isLightSquare = ((i + j) % 2 == 0);
+            std::string bgColor = isLightSquare ? LIGHT_SQUARE_BG : DARK_SQUARE_BG;
+
+            std::cout << "|" << bgColor;
+
             if (board[i][j]) {
-                // Set color based on the piece's color
-                if (board[i][j]->getColor() == Color::WHITE)
-                    std::cout << WHITE_COLOR << pieceSymbols.at(board[i][j]->getSymbol()) << ' ' << RESET_COLOR;
-                else
-                    std::cout << BLACK_COLOR << pieceSymbols.at(board[i][j]->getSymbol()) << ' ' << RESET_COLOR;
+                std::string fgColor = (board[i][j]->getColor() == Color::WHITE) ? WHITE_COLOR : BLACK_COLOR;
+                // Print piece with fg color, then reset fg only (keep background)
+                std::cout << " " << fgColor << pieceSymbols.at(board[i][j]->getSymbol()) << RESET_FG << " ";
+            } else {
+                std::cout << "   "; // 3 spaces for empty square (to align)
             }
-            else
-                std::cout << ". ";  // Empty space
+
+            std::cout << RESET_BG; // reset background after the square
         }
         std::cout << "| " << 8 - i << '\n';
         std::cout << "  +---+---+---+---+---+---+---+---+\n";
@@ -98,10 +112,8 @@ void Board::print() const {
     if (whiteCaptured.empty()) std::cout << "None ";
     else {
         for (auto p : whiteCaptured) {
-            if (p->getColor() == Color::WHITE)
-                std::cout << WHITE_COLOR << pieceSymbols.at(p->getSymbol()) << ' ' << RESET_COLOR;
-            else
-                std::cout << BLACK_COLOR << pieceSymbols.at(p->getSymbol()) << ' ' << RESET_COLOR;
+            std::string fg = (p->getColor() == Color::WHITE) ? WHITE_COLOR : BLACK_COLOR;
+            std::cout << fg << pieceSymbols.at(p->getSymbol()) << " " << RESET_COLOR;
         }
     }
 
@@ -109,10 +121,8 @@ void Board::print() const {
     if (blackCaptured.empty()) std::cout << "None ";
     else {
         for (auto p : blackCaptured) {
-            if (p->getColor() == Color::BLACK)
-                std::cout << BLACK_COLOR << pieceSymbols.at(p->getSymbol()) << ' ' << RESET_COLOR;
-            else
-                std::cout << WHITE_COLOR << pieceSymbols.at(p->getSymbol()) << ' ' << RESET_COLOR;
+            std::string fg = (p->getColor() == Color::BLACK) ? BLACK_COLOR : WHITE_COLOR;
+            std::cout << fg << pieceSymbols.at(p->getSymbol()) << " " << RESET_COLOR;
         }
     }
 
@@ -135,11 +145,10 @@ bool Board::movePiece(int sx, int sy, int dx, int dy) {
     }
 
     if (piece->isValidMove(sx, sy, dx, dy, board)) {
-        bool capture = false;
         Piece* dest = board[dx][dy];
 
         if (dest) {
-            capture = true;
+            // Capture logic
             if (dest->getColor() == Color::WHITE)
                 whiteCaptured.push_back(dest);
             else
@@ -149,7 +158,7 @@ bool Board::movePiece(int sx, int sy, int dx, int dy) {
         std::string from = std::string(1, 'a' + sy) + std::to_string(8 - sx);
         std::string to   = std::string(1, 'a' + dy) + std::to_string(8 - dx);
 
-        moveHistory.emplace_back(from, to, piece->getColor(), piece->getSymbol(), capture);
+        moveHistory.emplace_back(from, to, piece->getColor(), piece->getSymbol(), dest != nullptr);
 
         board[dx][dy] = piece;
         board[sx][sy] = nullptr;
@@ -173,7 +182,6 @@ void Board::printMoveHistory() const {
 
         if (i % 2 == 1) std::cout << '\n';
     }
-
     if (moveHistory.size() % 2 != 0) std::cout << '\n';
 }
 
@@ -201,7 +209,6 @@ bool Board::isCheckmate(Color color) const {
                 if (isMoveLegal(kingX, kingY, nx, ny, color))
                     return false;
         }
-
     return true;
 }
 
@@ -233,24 +240,26 @@ bool Board::isMoveLegal(int sx, int sy, int dx, int dy, Color color) const {
     if (!piece || piece->getColor() != color) return false;
     if (!piece->isValidMove(sx, sy, dx, dy, board)) return false;
 
+    // Copy board pointers (shallow copy) to simulate move
     Piece* tempBoard[8][8];
     for (int i = 0; i < 8; ++i)
         for (int j = 0; j < 8; ++j)
             tempBoard[i][j] = board[i][j];
 
+    // Simulate move
+    Piece* dest = tempBoard[dx][dy];
     tempBoard[dx][dy] = tempBoard[sx][sy];
     tempBoard[sx][sy] = nullptr;
 
-    int kingX = -1, kingY = -1;
-    for (int x = 0; x < 8; ++x)
-        for (int y = 0; y < 8; ++y)
-            if (tempBoard[x][y] && tempBoard[x][y]->getColor() == color && tempBoard[x][y]->getSymbol() == 'K') {
-                kingX = x;
-                kingY = y;
-                break;
-            }
+    // Check if move leaves own king in check
+    auto [kingX, kingY] = findKingPosition(color);
+
+    // If the piece is king, update king position
+    if (piece->getSymbol() == 'K')
+        kingX = dx, kingY = dy;
 
     Color opponent = (color == Color::WHITE) ? Color::BLACK : Color::WHITE;
+
     for (int x = 0; x < 8; ++x)
         for (int y = 0; y < 8; ++y)
             if (tempBoard[x][y] && tempBoard[x][y]->getColor() == opponent)
@@ -259,3 +268,4 @@ bool Board::isMoveLegal(int sx, int sy, int dx, int dy, Color color) const {
 
     return true;
 }
+

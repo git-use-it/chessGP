@@ -33,6 +33,13 @@ namespace Ansi {
         return FG_BLUE + text + RESET;
     }
 
+    const std::string BG_WHITE = "\033[47m";
+    const std::string BG_BLACK = "\033[40m";
+
+    const std::string BG_BRIGHT_WHITE = "\033[107m";
+    const std::string BG_BRIGHT_BLACK = "\033[100m";
+
+
     // Add more functions for other colors if needed
 }
 
